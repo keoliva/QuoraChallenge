@@ -3,43 +3,23 @@ import copy
 import random
 import time
 
-import collections
-import functools
-
-class memoized(object):
-    '''Decorator. Caches a function's return value each time it is called.
-    If called later with the same arguments, the cached value is returned
-    (not reevaluated).
-    '''
-    def __init__(self, func):
-        self.func = func
-        self.cache = {}
-    def __call__(self, *args):
-        if not isinstance(args, collections.Hashable):
-            # uncacheable. a list, for instance.
-            # better to not cache than blow up.
-            return self.func(*args)
-        if args in self.cache:
-            return self.cache[args]
-        else:
-            value = self.func(*args)
-            self.cache[args] = value
-            return value
-    def __repr__(self):
-        '''Return the function's docstring.'''
-        return self.func.__doc__
-    def __get__(self, obj, objtype):
-        '''Support instance methods.'''
-        return functools.partial(self.__call__, obj)
-
 class Item(object):
-    '''has types: user | topic | question | board'''
-    def __init__(self, type_, id_, score, dataStr, insertion_id):
+    '''Item is what's ADDed, where it's data string is what's matched
+       against queries.
+       
+       Attributes:
+         type: options are user | topic | question | board
+         id: a unique id of the item
+         score
+         dataStr: this is what's matched against the queries
+         insertionID: newly added items will have larger insertionIDs
+    '''
+    def __init__(self, type_, id_, score, dataStr, insertionID):
         self.type = type_
         self.id = id_
         self.score = float(score)
         self.dataStr = dataStr
-        self.insertion_id = insertion_id
+        self.insertionID = insertionID
         
     def __repr__(self):
         info = (self.type, self.id, self.score, self.dataStr)
@@ -49,7 +29,7 @@ class Item(object):
         comp = cmp(self.score, other.score)
         if comp == 0:
             #when there's a tie in the score, newer items are ranked higher
-            return -1 * cmp(self.insertion_id, other.insertion_id)
+            return -1 * cmp(self.insertionID, other.insertionID)
         #<id>s are printed in descending score order
         return -1 * comp
     
@@ -57,54 +37,64 @@ class Item(object):
         return self.itemID == other.itemID
 
 class TrieNode(object):
+    '''A node within a trie.
+
+       Attributes:
+         char: the character that the node represents
+         middle: the set of nodes that branch off the node
+         items: set of objects of type Item that contain the prefixes
+         upto the node within their data string
+    '''         
     def __init__(self, c=""):
         self.char = c
-        self.left = None
         self.middle = {}
-        self.right = None
         self.items = set()
 
 class Trie(object):
     def __init__(self):
         self.root = TrieNode()
-
-    def __repr__(self):
-        return ""
             
     def remove(self, words, item):
+        '''removes an item from the set of items in all the nodes
+           within the path in the trie, of every word in the item's
+           data string'''
         for word in words:
-            curr_node = self.root
+            currNode = self.root
             for i,ltr in enumerate(word):
-                try:
-                    curr_node = curr_node.middle[ltr]
-                except KeyError:
-                    new_node = TrieNode(ltr)
-                    curr_node.middle[ltr] = new_node
-                    curr_node = curr_node.middle[ltr]
-                curr_node.items.discard(item)
+                currNode = currNode.middle[ltr]
+                currNode.items.discard(item)
         
     def insert(self, words, item):
+        '''includes the item in the set of items in all the nodes
+           within the path in the trie, of every word in the item's
+           data string
+        '''
         for word in words:
-            curr_node = self.root
+            currNode = self.root
             for i,ltr in enumerate(word):
                 try:
-                    curr_node = curr_node.middle[ltr]
+                    currNode = currNode.middle[ltr]
                 except KeyError:
-                    new_node = TrieNode(ltr)
-                    curr_node.middle[ltr] = new_node
-                    curr_node = curr_node.middle[ltr]
-                curr_node.items.add(item)
+                    newNode = TrieNode(ltr)
+                    currNode.middle[ltr] = newNode
+                    currNode = currNode.middle[ltr]
+                currNode.items.add(item)
         
     def isPrefix(self, word):
-        curr_node = self.root
+        '''returns the set of items at the end of the path of the word in the
+           trie if the word is in the trie
+        '''
+        currNode = self.root
         for i,ltr in enumerate(word):
             try:
-                curr_node = curr_node.middle[ltr]
+                currNode = currNode.middle[ltr]
             except KeyError:
                 return set()
-        return curr_node.items
+        return currNode.items
   
 class MainHandler(object):
+    '''Handles the commands passed in as input
+    '''
     def __init__(self):
         self.items = {}
         self.trie = Trie()
@@ -116,47 +106,48 @@ class MainHandler(object):
         self.items[id_] = item
         self.trie.insert(dataStr.lower().split(), item)
         
-    def delete(self, command_data):
+    def delete(self, commandData):
         '''DEL <id>'''
-        itemID = command_data
+        itemID = commandData
         item = self.items.pop(itemID, None)
         self.trie.remove(item.dataStr.lower().split(), item)
         
-    def query(self, command_data):
+    def query(self, commandData):
         '''QUERY <number of results> <query string that can contain spaces>'''
-        [numOfResults, queryStr] = command_data.split(" ",1)
+        [numOfResults, queryStr] = commandData.split(" ",1)
         numOfResults = int(numOfResults)
         queryTokens = queryStr.lower().split(" ")
-        #print time.time()
+        
         self._query({}, numOfResults, queryTokens)
         
-    def wquery(self, command_data):
+    def wquery(self, commandData):
         '''WQUERY <number of results> <number of boosts>
                   (<type>:<boost>)* (<id>:<boost>)*
                   <query string that can contain spaces>'''
-        [numOfResults, numOfBoosts, rest_of_query] = command_data.split(" ", 2)
+        [numOfResults, numOfBoosts, restOfQuery] = commandData.split(" ", 2)
         numOfResults = int(numOfResults)
         numOfBoosts = int(numOfBoosts)
-        rest_of_query = rest_of_query.split(" ", numOfBoosts)
+        restOfQuery = restOfQuery.split(" ", numOfBoosts)
 
         boosts = {}
         for i in range(numOfBoosts):
-            [affected,boost] = rest_of_query[i].split(":")
+            [affected,boost] = restOfQuery[i].split(":")
             try:
                 boosts[affected] += [float(boost)]
             except KeyError:
                 boosts[affected] = [float(boost)]
                                                           
-        queryStr = rest_of_query[-1]
+        queryStr = restOfQuery[-1]
         queryTokens = queryStr.lower().split(" ")
-        #print time.time()
         
         self._query(boosts, numOfResults, queryTokens)
 
     def _query(self, boosts, numOfResults, queryTokens):
+        '''prints the items that match the words in the query string, upto
+           a certain number -- numOfResult'''
         types = ['user','topic','question','board']
 
-        deep_copy = copy.deepcopy
+        deepcopy = copy.deepcopy
         isPrefix = self.trie.isPrefix
         valuesWithTokens = map(lambda x: isPrefix(x), queryTokens)
         try:
@@ -168,17 +159,17 @@ class MainHandler(object):
         values = list(values)
         if boosts:
             for (i,value) in enumerate(values):
-                for b_key in boosts.keys():
-                    for boost in boosts[b_key]:
-                        if b_key in types:
-                            if value.type == b_key:
-                                value = deep_copy(value)
+                for bKey in boosts.keys():
+                    for boost in boosts[bKey]:
+                        if bKey in types:
+                            if value.type == bKey:
+                                value = deepcopy(value)
                                 value.score *= boost
                         else: #an id is specified
-                            value = deep_copy(self.items[b_key])
+                            value = deepcopy(self.items[bKey])
                             value.score *= boost
                         values[i] = value
-        #print time.time()         
+         
         values.sort()
         values = values[:numOfResults]
         if values:
@@ -204,21 +195,23 @@ def main():
     wquery = Main.wquery
     inserted = 0
     for obj in lines[1:N+1]:
-        [command, command_data] = obj.split(" ", 1)
+        [command, commandData] = obj.split(" ", 1)
 
         if command == 'ADD':
-            add(command_data,inserted)
+            add(commandData,inserted)
             inserted += 1
         elif command == 'DEL':
-            delete(command_data)
+            delete(commandData)
         elif command == 'QUERY':
-            query(command_data)
+            query(commandData)
         elif command == 'WQUERY':
-            wquery(command_data)
+            wquery(commandData)
+
+main()
 
 
 ############################################################################
-##############################Tests#########################################
+##############################Test-Time#####################################
 def make_input():
     types = ['user','topic','question','board']
     inputt = "39999\n"
@@ -267,12 +260,7 @@ def make_input():
     inputt += 'QUERY 10 His\n'
     inputt += 'DEL %s\n' % x[100]
     inputt += 'QUERY 30 I\n'
-    boost_ids = [str(i) for i in range(1,22)]
-    sub_boost = ''
-    for i in range(1,22):
-        sub_boost += '%s:'+str(i)+' '
-    boosts = ('board:2.0 topic:9.99 user:5.0 %s' % sub_boost) % tuple(boost_ids)
-    inputt += 'WQUERY 2 24 %sphone\n' % boosts
+    inputt += 'WQUERY 3 24 board:2.0 topic:9.99 user:5.0 phone\n'
     inputt += 'DEL %s\n' % x[888]
     inputt += 'DEL %s\n' % x[900]
     inputt += 'WQUERY 20 1 user:5.6 he can buy most expensive\n'
@@ -280,11 +268,8 @@ def make_input():
         
     return inputt
 
-
 ##x=make_input()
 ##s = time.time()
 ##main(x)
 ##e = time.time()
 ##print '%d' % (e-s)
-main()
-
