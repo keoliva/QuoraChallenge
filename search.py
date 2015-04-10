@@ -34,15 +34,15 @@ class memoized(object):
 
 class Item(object):
     '''has types: user | topic | question | board'''
-    def __init__(self, itemType, itemID, score, dataStr, insertion_id):
-        self.itemType = itemType
-        self.itemID = itemID
+    def __init__(self, type_, id_, score, dataStr, insertion_id):
+        self.type = type_
+        self.id = id_
         self.score = float(score)
         self.dataStr = dataStr
         self.insertion_id = insertion_id
         
     def __repr__(self):
-        info = (self.itemType, self.itemID, self.score, self.dataStr)
+        info = (self.type, self.id, self.score, self.dataStr)
         return "Item(type:%r, id:%r, score:%f, data string:%r)" % info
     
     def __cmp__(self, other):
@@ -122,28 +122,28 @@ class MainHandler(object):
         self.items = {}
         self.trie = Trie()
         
-    def add_command(self, commandData, insertionID):
+    def add(self, commandData, insertionID):
         '''ADD <type> <id> <score> <data string that contain spaces>'''
-        [itemType,itemID,score,dataStr] = commandData.split(" ",3)
-        item = Item(itemType,itemID,score,dataStr,insertionID)
-        self.items[itemID] = item
+        [type_,id_,score,dataStr] = commandData.split(" ",3)
+        item = Item(type_,id_,score,dataStr,insertionID)
+        self.items[id_] = item
         self.trie.insert(dataStr.lower().split(), item)
         
-    def delete_command(self, command_data):
+    def delete(self, command_data):
         '''DEL <id>'''
         itemID = command_data
         item = self.items.pop(itemID, None)
         self.trie.remove(item.dataStr.lower().split(), item)
         
-    def query_command(self, command_data):
+    def query(self, command_data):
         '''QUERY <number of results> <query string that can contain spaces>'''
         [numOfResults, queryStr] = command_data.split(" ",1)
         numOfResults = int(numOfResults)
         queryTokens = queryStr.lower().split(" ")
         print time.time()
-        #self.query({}, numOfResults, queryTokens)
+        self._query({}, numOfResults, queryTokens)
         
-    def wquery_command(self, command_data):
+    def wquery(self, command_data):
         '''WQUERY <number of results> <number of boosts>
                   (<type>:<boost>)* (<id>:<boost>)*
                   <query string that can contain spaces>'''
@@ -164,9 +164,9 @@ class MainHandler(object):
         queryTokens = queryStr.lower().split(" ")
         print time.time()
         
-        #self.query(boosts, numOfResults, queryTokens)
+        self._query(boosts, numOfResults, queryTokens)
 
-    def query(self, boosts, numOfResults, queryTokens):
+    def _query(self, boosts, numOfResults, queryTokens):
         types = ['user','topic','question','board']
 
         deep_copy = copy.deepcopy
@@ -184,7 +184,7 @@ class MainHandler(object):
                 for b_key in boosts.keys():
                     for boost in boosts[b_key]:
                         if b_key in types:
-                            if value.itemType == b_key:
+                            if value.type == b_key:
                                 value = deep_copy(value)
                                 value.score *= boost
                         else: #an id is specified
@@ -200,9 +200,9 @@ class MainHandler(object):
             for item in values:
                 try:
                     if i.next():
-                        print item.itemID,
+                        print item.id,
                 except StopIteration:
-                    print item.itemID
+                    print item.id
         else:
             print ""
             
@@ -211,10 +211,10 @@ def main(inputt):
     lines = inputt.split('\n')
     #N = int(lines[0])
     Main = MainHandler()
-    add = Main.add_command
-    delete = Main.delete_command
-    query = Main.query_command
-    wquery = Main.wquery_command
+    add = Main.add
+    delete = Main.delete
+    query = Main.query
+    wquery = Main.wquery
     inserted = 0
     for obj in lines[1:-1]:
         [command, command_data] = obj.split(" ", 1)
@@ -280,7 +280,7 @@ def make_input():
     inputt += 'QUERY 10 His\n'
     inputt += 'DEL %s\n' % x[100]
     inputt += 'QUERY 30 I\n'
-    inputt += 'WQUERY 2 3 %s:1.0 %s:20.0 topic:9.99 phone\n' % (x[5], x[7777])
+    inputt += 'WQUERY 2 1 %s:20.0 topic:9.99 phone\n' % (x[5])
     inputt += 'DEL %s\n' % x[888]
     inputt += 'DEL %s\n' % x[900]
     inputt += 'WQUERY 20 1 user:5.6 he can buy most expensive\n'
