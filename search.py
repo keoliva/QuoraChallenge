@@ -33,30 +33,26 @@ class memoized(object):
         return functools.partial(self.__call__, obj)
 
 class Item(object):
+    '''has types: user | topic | question | board'''
     def __init__(self, itemType, itemID, score, dataStr, insertion_id):
         self.itemType = itemType
         self.itemID = itemID
         self.score = float(score)
         self.dataStr = dataStr
-        self.trie = Trie()
-        #for word in dataStr.lower().split(" "):
-        #self.trie.add(set(dataStr.lower().split(" ")), self)
         self.insertion_id = insertion_id
-
+        
     def __repr__(self):
         info = (self.itemType, self.itemID, self.score, self.dataStr)
         return "Item(type:%r, id:%r, score:%f, data string:%r)" % info
-        
+    
     def __cmp__(self, other):
         comp = cmp(self.score, other.score)
         if comp == 0:
-            # newer items, which
-            # are initially put into the list of results, rank higher
+            #when there's a tie in the score, newer items are ranked higher
             return -1 * cmp(self.insertion_id, other.insertion_id)
-        if comp == -1:
-            return 1
-        else:
-            return -1
+        #<id>s are printed in descending score order
+        return -1 * comp
+    
     def __eq__(self, other):
         return self.itemID == other.itemID
 
@@ -81,7 +77,7 @@ class Trie(object):
             if word[i] < T.char: T.left = delete_char(T.left, word, i)
             elif word[i] > T.char: T.right = delete_char(T.right, word, i)
             else:
-                T.items.discard(self.item_being_deleted)
+                T.items.discard(item)
                 try:
                     c = word[i+1]
                     T.middle = delete_char(T.middle, word, i+1)
@@ -110,43 +106,47 @@ class Trie(object):
         
     def isPrefix(self, word):
         def lookup(T, word, i):
-            if T == None: return (T, set())
+            if T == None: return set()
             if word[i] < T.char: return lookup(T.left, word, i)
             if word[i] > T.char: return lookup(T.right, word, i)
             try:
                 c = word[i+1]
                 return lookup(T.middle, word, i+1)
             except IndexError:
-                return (T, T.items)
+                return T.items
         
         return lookup(self.root, word, 0)
         
-class OrdDict(object):
+class MainHandler(object):
     def __init__(self):
         self.items = {}
         self.trie = Trie()
         
     def add_command(self, commandData, insertionID):
+        '''ADD <type> <id> <score> <data string that contain spaces>'''
         [itemType,itemID,score,dataStr] = commandData.split(" ",3)
         item = Item(itemType,itemID,score,dataStr,insertionID)
         self.items[itemID] = item
-        self.trie.insert(dataStr.lower().split(" "), item)
+        self.trie.insert(dataStr.lower().split(), item)
         
     def delete_command(self, command_data):
+        '''DEL <id>'''
         itemID = command_data
         item = self.items.pop(itemID, None)
-        self.trie.remove(item.dataStr.lower().split(" "), item)
+        self.trie.remove(item.dataStr.lower().split(), item)
         
     def query_command(self, command_data):
-        #print 'Beginning to query......',command_data
+        '''QUERY <number of results> <query string that can contain spaces>'''
         [numOfResults, queryStr] = command_data.split(" ",1)
         numOfResults = int(numOfResults)
         queryTokens = queryStr.lower().split(" ")
         print time.time()
-        self.query({}, numOfResults, queryTokens)
+        #self.query({}, numOfResults, queryTokens)
         
     def wquery_command(self, command_data):
-        #print 'Beginning to wquery....'
+        '''WQUERY <number of results> <number of boosts>
+                  (<type>:<boost>)* (<id>:<boost>)*
+                  <query string that can contain spaces>'''
         [numOfResults, numOfBoosts, rest_of_query] = command_data.split(" ", 2)
         numOfResults = int(numOfResults)
         numOfBoosts = int(numOfBoosts)
@@ -164,14 +164,14 @@ class OrdDict(object):
         queryTokens = queryStr.lower().split(" ")
         print time.time()
         
-        self.query(boosts, numOfResults, queryTokens)
+        #self.query(boosts, numOfResults, queryTokens)
 
     def query(self, boosts, numOfResults, queryTokens):
         types = ['user','topic','question','board']
 
         deep_copy = copy.deepcopy
         isPrefix = self.trie.isPrefix
-        valuesWithTokens = map(lambda x: isPrefix(x)[1], queryTokens)
+        valuesWithTokens = map(lambda x: isPrefix(x), queryTokens)
         try:
             values = reduce(lambda x,y: x & y, valuesWithTokens[1:],
                                                valuesWithTokens[0])
@@ -179,17 +179,18 @@ class OrdDict(object):
             values = set()
 
         values = list(values)
-        for (i,value) in enumerate(values):
-            for b_key in boosts.keys():
-                for boost in boosts[b_key]:
-                    if b_key in types:
-                        if value.itemType == b_key:
-                            value = deep_copy(value)
+        if boosts:
+            for (i,value) in enumerate(values):
+                for b_key in boosts.keys():
+                    for boost in boosts[b_key]:
+                        if b_key in types:
+                            if value.itemType == b_key:
+                                value = deep_copy(value)
+                                value.score *= boost
+                        else: #an id is specified
+                            value = deep_copy(self.items[b_key])
                             value.score *= boost
-                    else: #an id is specified
-                        value = deep_copy(self.items[b_key])
-                        value.score *= boost
-                    values[i] = value
+                        values[i] = value
         print time.time()         
         values.sort()
         values = values[:numOfResults]
@@ -209,11 +210,11 @@ def main(inputt):
     #lines = sys.stdin.readline().split('\n')
     lines = inputt.split('\n')
     #N = int(lines[0])
-    Dict = OrdDict()
-    add = Dict.add_command
-    delete = Dict.delete_command
-    query = Dict.query_command
-    wquery = Dict.wquery_command
+    Main = MainHandler()
+    add = Main.add_command
+    delete = Main.delete_command
+    query = Main.query_command
+    wquery = Main.wquery_command
     inserted = 0
     for obj in lines[1:-1]:
         [command, command_data] = obj.split(" ", 1)
@@ -279,7 +280,7 @@ def make_input():
     inputt += 'QUERY 10 His\n'
     inputt += 'DEL %s\n' % x[100]
     inputt += 'QUERY 30 I\n'
-    inputt += 'WQUERY 2 2 %s:1.0 topic:9.99 phone\n' % x[5]
+    inputt += 'WQUERY 2 3 %s:1.0 %s:20.0 topic:9.99 phone\n' % (x[5], x[7777])
     inputt += 'DEL %s\n' % x[888]
     inputt += 'DEL %s\n' % x[900]
     inputt += 'WQUERY 20 1 user:5.6 he can buy most expensive\n'
