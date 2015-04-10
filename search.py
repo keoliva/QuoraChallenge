@@ -69,13 +69,11 @@ class Trie(object):
         self.root = TrieNode()
 
     def __repr__(self):
-##        curr_node = self.root
-##        for key in curr_node.middle.keys():
         return ""
             
     def remove(self, words, item):
-        curr_node = self.root
         for word in words:
+            curr_node = self.root
             for i,ltr in enumerate(word):
                 try:
                     curr_node = curr_node.middle[ltr]
@@ -84,24 +82,10 @@ class Trie(object):
                     curr_node.middle[ltr] = new_node
                     curr_node = curr_node.middle[ltr]
                 curr_node.items.discard(item)
-##        def delete_char(T, word, i):
-##            if T == None: return T
-##            if word[i] < T.char: T.left = delete_char(T.left, word, i)
-##            elif word[i] > T.char: T.right = delete_char(T.right, word, i)
-##            else:
-##                T.items.discard(item)
-##                try:
-##                    c = word[i+1]
-##                    T.middle = delete_char(T.middle, word, i+1)
-##                except IndexError:
-##                    pass
-##            return T
-##        for word in words:
-##            if word: self.root = delete_char(self.root, word, 0)
         
     def insert(self, words, item):
-        curr_node = self.root
         for word in words:
+            curr_node = self.root
             for i,ltr in enumerate(word):
                 try:
                     curr_node = curr_node.middle[ltr]
@@ -110,21 +94,6 @@ class Trie(object):
                     curr_node.middle[ltr] = new_node
                     curr_node = curr_node.middle[ltr]
                 curr_node.items.add(item)
-##        def add_char(T, word, i):
-##            if T == None:
-##                T = TrieNode(word[i])
-##            if word[i] < T.char: T.left = add_char(T.left, word, i)
-##            elif word[i] > T.char: T.right = add_char(T.right, word, i)
-##            else:
-##                T.items.add(item)
-##                try:
-##                    c = word[i+1]
-##                    T.middle = add_char(T.middle, word, i+1)
-##                except IndexError:
-##                    pass
-##            return T
-##        for word in words:
-##            if word: self.root = add_char(self.root, word, 0)
         
     def isPrefix(self, word):
         curr_node = self.root
@@ -134,20 +103,7 @@ class Trie(object):
             except KeyError:
                 return set()
         return curr_node.items
-##        def lookup(T, word, i):
-##            if T == None: return set()
-##            if word[i] < T.char: return lookup(T.left, word, i)
-##            if word[i] > T.char: return lookup(T.right, word, i)
-##            try:
-##                c = word[i+1]
-##                return lookup(T.middle, word, i+1)
-##            except IndexError:
-##                return T.items
-##        
-##        return lookup(self.root, word, 0)
-def main():
-    x=Trie()
-        
+  
 class MainHandler(object):
     def __init__(self):
         self.items = {}
@@ -171,7 +127,7 @@ class MainHandler(object):
         [numOfResults, queryStr] = command_data.split(" ",1)
         numOfResults = int(numOfResults)
         queryTokens = queryStr.lower().split(" ")
-        print time.time()
+        #print time.time()
         self._query({}, numOfResults, queryTokens)
         
     def wquery(self, command_data):
@@ -193,7 +149,7 @@ class MainHandler(object):
                                                           
         queryStr = rest_of_query[-1]
         queryTokens = queryStr.lower().split(" ")
-        print time.time()
+        #print time.time()
         
         self._query(boosts, numOfResults, queryTokens)
 
@@ -222,7 +178,7 @@ class MainHandler(object):
                             value = deep_copy(self.items[b_key])
                             value.score *= boost
                         values[i] = value
-        print time.time()         
+        #print time.time()         
         values.sort()
         values = values[:numOfResults]
         if values:
@@ -237,17 +193,17 @@ class MainHandler(object):
         else:
             print ""
             
-def main(inputt):
-    #lines = sys.stdin.readline().split('\n')
-    lines = inputt.split('\n')
-    #N = int(lines[0])
+def main():
+    lines = sys.stdin.readline().split('\n')
+    #lines = inputt.split('\n')
+    N = int(lines[0])
     Main = MainHandler()
     add = Main.add
     delete = Main.delete
     query = Main.query
     wquery = Main.wquery
     inserted = 0
-    for obj in lines[1:-1]:
+    for obj in lines[1:N+1]:
         [command, command_data] = obj.split(" ", 1)
 
         if command == 'ADD':
@@ -306,12 +262,17 @@ def make_input():
         inputt += (comm + '\n')
         
     inputt += 'DEL %s\n' % x[0]
-    inputt += 'QUERY 10 His\n'
+    inputt += 'QUERY 10 I\n'
     inputt += 'QUERY 10 girls\n'
     inputt += 'QUERY 10 His\n'
     inputt += 'DEL %s\n' % x[100]
     inputt += 'QUERY 30 I\n'
-    inputt += 'WQUERY 2 1 %s:20.0 topic:9.99 phone\n' % (x[5])
+    boost_ids = [str(i) for i in range(1,22)]
+    sub_boost = ''
+    for i in range(1,22):
+        sub_boost += '%s:'+str(i)+' '
+    boosts = ('board:2.0 topic:9.99 user:5.0 %s' % sub_boost) % tuple(boost_ids)
+    inputt += 'WQUERY 2 24 %sphone\n' % boosts
     inputt += 'DEL %s\n' % x[888]
     inputt += 'DEL %s\n' % x[900]
     inputt += 'WQUERY 20 1 user:5.6 he can buy most expensive\n'
@@ -320,10 +281,10 @@ def make_input():
     return inputt
 
 
-x=make_input()
-s = time.time()
-main(x)
-e = time.time()
-print '%d' % (e-s)
-#main()
+##x=make_input()
+##s = time.time()
+##main(x)
+##e = time.time()
+##print '%d' % (e-s)
+main()
 
