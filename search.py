@@ -57,65 +57,96 @@ class Item(object):
         return self.itemID == other.itemID
 
 class TrieNode(object):
-    def __init__(self, c):
+    def __init__(self, c=""):
         self.char = c
         self.left = None
-        self.middle = None
+        self.middle = {}
         self.right = None
         self.items = set()
 
 class Trie(object):
     def __init__(self):
-        self.root = None
+        self.root = TrieNode()
 
     def __repr__(self):
-        return self.root
-
+##        curr_node = self.root
+##        for key in curr_node.middle.keys():
+        return ""
+            
     def remove(self, words, item):
-        def delete_char(T, word, i):
-            if T == None: return T
-            if word[i] < T.char: T.left = delete_char(T.left, word, i)
-            elif word[i] > T.char: T.right = delete_char(T.right, word, i)
-            else:
-                T.items.discard(item)
-                try:
-                    c = word[i+1]
-                    T.middle = delete_char(T.middle, word, i+1)
-                except IndexError:
-                    pass
-            return T
+        curr_node = self.root
         for word in words:
-            if word: self.root = delete_char(self.root, word, 0)
+            for i,ltr in enumerate(word):
+                try:
+                    curr_node = curr_node.middle[ltr]
+                except KeyError:
+                    new_node = TrieNode(ltr)
+                    curr_node.middle[ltr] = new_node
+                    curr_node = curr_node.middle[ltr]
+                curr_node.items.discard(item)
+##        def delete_char(T, word, i):
+##            if T == None: return T
+##            if word[i] < T.char: T.left = delete_char(T.left, word, i)
+##            elif word[i] > T.char: T.right = delete_char(T.right, word, i)
+##            else:
+##                T.items.discard(item)
+##                try:
+##                    c = word[i+1]
+##                    T.middle = delete_char(T.middle, word, i+1)
+##                except IndexError:
+##                    pass
+##            return T
+##        for word in words:
+##            if word: self.root = delete_char(self.root, word, 0)
         
     def insert(self, words, item):
-        def add_char(T, word, i):
-            if T == None:
-                T = TrieNode(word[i])
-            if word[i] < T.char: T.left = add_char(T.left, word, i)
-            elif word[i] > T.char: T.right = add_char(T.right, word, i)
-            else:
-                T.items.add(item)
-                try:
-                    c = word[i+1]
-                    T.middle = add_char(T.middle, word, i+1)
-                except IndexError:
-                    pass
-            return T
+        curr_node = self.root
         for word in words:
-            if word: self.root = add_char(self.root, word, 0)
+            for i,ltr in enumerate(word):
+                try:
+                    curr_node = curr_node.middle[ltr]
+                except KeyError:
+                    new_node = TrieNode(ltr)
+                    curr_node.middle[ltr] = new_node
+                    curr_node = curr_node.middle[ltr]
+                curr_node.items.add(item)
+##        def add_char(T, word, i):
+##            if T == None:
+##                T = TrieNode(word[i])
+##            if word[i] < T.char: T.left = add_char(T.left, word, i)
+##            elif word[i] > T.char: T.right = add_char(T.right, word, i)
+##            else:
+##                T.items.add(item)
+##                try:
+##                    c = word[i+1]
+##                    T.middle = add_char(T.middle, word, i+1)
+##                except IndexError:
+##                    pass
+##            return T
+##        for word in words:
+##            if word: self.root = add_char(self.root, word, 0)
         
     def isPrefix(self, word):
-        def lookup(T, word, i):
-            if T == None: return set()
-            if word[i] < T.char: return lookup(T.left, word, i)
-            if word[i] > T.char: return lookup(T.right, word, i)
+        curr_node = self.root
+        for i,ltr in enumerate(word):
             try:
-                c = word[i+1]
-                return lookup(T.middle, word, i+1)
-            except IndexError:
-                return T.items
-        
-        return lookup(self.root, word, 0)
+                curr_node = curr_node.middle[ltr]
+            except KeyError:
+                return set()
+        return curr_node.items
+##        def lookup(T, word, i):
+##            if T == None: return set()
+##            if word[i] < T.char: return lookup(T.left, word, i)
+##            if word[i] > T.char: return lookup(T.right, word, i)
+##            try:
+##                c = word[i+1]
+##                return lookup(T.middle, word, i+1)
+##            except IndexError:
+##                return T.items
+##        
+##        return lookup(self.root, word, 0)
+def main():
+    x=Trie()
         
 class MainHandler(object):
     def __init__(self):
