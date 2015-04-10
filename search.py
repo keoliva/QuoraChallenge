@@ -71,23 +71,11 @@ class TrieNode(object):
 class Trie(object):
     def __init__(self):
         self.root = None
-        self.item_being_added = None
-        self.item_being_deleted = None
 
     def __repr__(self):
         return self.root
-    
-    def add_item(self, words, item):
-        self.item_being_added = item
-        for word in words:
-            if word: self.insert(word)
-            
-    def delete_item(self, words, item):
-        self.item_being_deleted = item
-        for word in words:
-            if word: self.remove(word)
 
-    def remove(self, word):
+    def remove(self, words, item):
         def delete_char(T, word, i):
             if T == None: return T
             if word[i] < T.char: T.left = delete_char(T.left, word, i)
@@ -100,23 +88,25 @@ class Trie(object):
                 except IndexError:
                     pass
             return T
-        self.root = delete_char(self.root, word, 0)
+        for word in words:
+            if word: self.root = delete_char(self.root, word, 0)
         
-    def insert(self, word):
+    def insert(self, words, item):
         def add_char(T, word, i):
             if T == None:
                 T = TrieNode(word[i])
             if word[i] < T.char: T.left = add_char(T.left, word, i)
             elif word[i] > T.char: T.right = add_char(T.right, word, i)
             else:
-                T.items.add(self.item_being_added)
+                T.items.add(item)
                 try:
                     c = word[i+1]
                     T.middle = add_char(T.middle, word, i+1)
                 except IndexError:
                     pass
             return T
-        self.root = add_char(self.root, word, 0)
+        for word in words:
+            if word: self.root = add_char(self.root, word, 0)
         
     def isPrefix(self, word):
         def lookup(T, word, i):
@@ -140,12 +130,12 @@ class OrdDict(object):
         [itemType,itemID,score,dataStr] = commandData.split(" ",3)
         item = Item(itemType,itemID,score,dataStr,insertionID)
         self.items[itemID] = item
-        self.trie.add_item(dataStr.lower().split(" "), item)
+        self.trie.insert(dataStr.lower().split(" "), item)
         
     def delete_command(self, command_data):
         itemID = command_data
         item = self.items.pop(itemID, None)
-        self.trie.delete_item(item.dataStr.lower().split(" "), item)
+        self.trie.remove(item.dataStr.lower().split(" "), item)
         
     def query_command(self, command_data):
         #print 'Beginning to query......',command_data
@@ -283,17 +273,17 @@ def make_input():
         comm = 'ADD %s %s %f %s' % (item_type,item_id,score,data_str[0])
         inputt += (comm + '\n')
         
-##    inputt += 'DEL %s\n' % x[0]
-##    inputt += 'QUERY 10 His\n'
-##    inputt += 'QUERY 10 girls\n'
-##    inputt += 'QUERY 10 His\n'
-##    inputt += 'DEL %s\n' % x[100]
-##    inputt += 'QUERY 30 I\n'
-##    inputt += 'WQUERY 2 2 %s:1.0 topic:9.99 phone\n' % x[5]
-##    inputt += 'DEL %s\n' % x[888]
-##    inputt += 'DEL %s\n' % x[900]
-##    inputt += 'WQUERY 20 1 user:5.6 he can buy most expensive\n'
-##    inputt += 'DEL %s\n' % x[999]
+    inputt += 'DEL %s\n' % x[0]
+    inputt += 'QUERY 10 His\n'
+    inputt += 'QUERY 10 girls\n'
+    inputt += 'QUERY 10 His\n'
+    inputt += 'DEL %s\n' % x[100]
+    inputt += 'QUERY 30 I\n'
+    inputt += 'WQUERY 2 2 %s:1.0 topic:9.99 phone\n' % x[5]
+    inputt += 'DEL %s\n' % x[888]
+    inputt += 'DEL %s\n' % x[900]
+    inputt += 'WQUERY 20 1 user:5.6 he can buy most expensive\n'
+    inputt += 'DEL %s\n' % x[999]
         
     return inputt
 
