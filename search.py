@@ -1,7 +1,7 @@
-import sys
 import copy
 import random
 import time
+import heapq
 
 class Item(object):
     '''Item is what's ADDed, where it's data string is what's matched
@@ -29,12 +29,12 @@ class Item(object):
         comp = cmp(self.score, other.score)
         if comp == 0:
             #when there's a tie in the score, newer items are ranked higher
-            return -1 * cmp(self.insertionID, other.insertionID)
+            return cmp(self.insertionID, other.insertionID)
         #<id>s are printed in descending score order
-        return -1 * comp
+        return comp
     
     def __eq__(self, other):
-        return self.itemID == other.itemID
+        return self.id == other.id
 
 class TrieNode(object):
     '''A node within a trie.
@@ -91,7 +91,27 @@ class Trie(object):
             except KeyError:
                 return set()
         return currNode.items
-  
+
+class ManageTopItems(object):
+        '''Makes sure that the first n elements are kept in the heap,
+           where n represents the number of results required from the query
+        '''
+        def __init__(self, numOfResults):
+            self.heap = []
+            self.numOfResults = numOfResults
+            self.itemsInserted = 0
+
+        def push(self, item):
+            if self.itemsInserted >= self.numOfResults:
+                _ = heapq.heappushpop(self.heap, item)
+            else:
+                heapq.heappush(self.heap, item)
+                self.itemsInserted += 1
+                
+        def heapify(self, iterable):
+            heapq.heapify(iterable)
+            self.heap = iterable
+
 class MainHandler(object):
     '''Handles the commands passed in as input
     '''
@@ -118,7 +138,7 @@ class MainHandler(object):
         numOfResults = int(numOfResults)
         queryTokens = queryStr.lower().split(" ")
         
-        self._query({}, numOfResults, queryTokens)
+        print self._query({}, numOfResults, queryTokens)
         
     def wquery(self, commandData):
         '''WQUERY <number of results> <number of boosts>
@@ -140,7 +160,7 @@ class MainHandler(object):
         queryStr = restOfQuery[-1]
         queryTokens = queryStr.lower().split(" ")
         
-        self._query(boosts, numOfResults, queryTokens)
+        print self._query(boosts, numOfResults, queryTokens)
 
     def _query(self, boosts, numOfResults, queryTokens):
         '''prints the items that match the words in the query string, upto
@@ -148,15 +168,15 @@ class MainHandler(object):
         types = ['user','topic','question','board']
 
         deepcopy = copy.deepcopy
-        isPrefix = self.trie.isPrefix
+        isPrefix = self.trie.isPrefix 
         valuesWithTokens = map(lambda x: isPrefix(x), queryTokens)
         try:
             values = reduce(lambda x,y: x & y, valuesWithTokens[1:],
                                                valuesWithTokens[0])
         except IndexError:
-            values = set()
+            values = set()            
 
-        values = list(values)
+        heapHandler = ManageTopItems(numOfResults)
         if boosts:
             for (i,value) in enumerate(values):
                 for bKey in boosts.keys():
@@ -168,24 +188,21 @@ class MainHandler(object):
                         else: #an id is specified
                             value = deepcopy(self.items[bKey])
                             value.score *= boost
-                        values[i] = value
-         
-        values.sort()
-        values = values[:numOfResults]
-        if values:
-            i = iter(values)
-            _ = i.next()
-            for item in values:
-                try:
-                    if i.next():
-                        print item.id,
-                except StopIteration:
-                    print item.id
+                heapHandler.push(value)
         else:
-            print ""
+            heapHandler.heapify(list(values))
             
+        largeInputSize = 1000    
+        if numOfResults < largeInputSize:
+            results = heapq.nlargest(numOfResults, heapHandler.heap)
+        else:
+            results = sorted(heapHandler.heap,
+                             lambda x,y:-1*cmp(x,y))[:numOfResults]
+        return " ".join([item.id for item in results])
+
+
 def main():
-    lines = sys.stdin.readline().split('\n')
+    lines = raw_input().split('\n')
     #lines = inputt.split('\n')
     N = int(lines[0])
     Main = MainHandler()
@@ -194,8 +211,8 @@ def main():
     query = Main.query
     wquery = Main.wquery
     inserted = 0
-    for obj in lines[1:N+1]:
-        [command, commandData] = obj.split(" ", 1)
+    for line in lines[1:N+1]:
+        [command, commandData] = line.strip().split(" ", 1)
 
         if command == 'ADD':
             add(commandData,inserted)
@@ -207,14 +224,14 @@ def main():
         elif command == 'WQUERY':
             wquery(commandData)
 
-main()
-
+if __name__ == '__main__':
+    main()
 
 ############################################################################
-##############################Test-Time#####################################
+##############################Test Time#####################################
 def make_input():
     types = ['user','topic','question','board']
-    inputt = "39999\n"
+    inputt = "30000\n"
     data_str = '''This is a true story.
 
     A few years ago, I was at a party. Most people there were very wealthy. There were many diplomats, executives and wealthy businessmen. 
@@ -249,7 +266,7 @@ def make_input():
         item_id = item_type[0]+str(i)
 
         x += [item_id]
-        score = float(random.randrange(1,100)) #range [0,1)
+        score = float(random.randrange(1,100)) 
 
         comm = 'ADD %s %s %f %s' % (item_type,item_id,score,data_str[0])
         inputt += (comm + '\n')
@@ -258,13 +275,13 @@ def make_input():
     inputt += 'QUERY 10 I\n'
     inputt += 'QUERY 10 girls\n'
     inputt += 'QUERY 10 His\n'
-    inputt += 'DEL %s\n' % x[100]
+    inputt += 'DEL %s\n' % x[80]
     inputt += 'QUERY 30 I\n'
-    inputt += 'WQUERY 3 24 board:2.0 topic:9.99 user:5.0 phone\n'
-    inputt += 'DEL %s\n' % x[888]
-    inputt += 'DEL %s\n' % x[900]
+    inputt += 'WQUERY 3 3 board:2.0 topic:9.99 user:5.0 phone\n'
+    inputt += 'DEL %s\n' % x[8]
+    inputt += 'DEL %s\n' % x[90]
     inputt += 'WQUERY 20 1 user:5.6 he can buy most expensive\n'
-    inputt += 'DEL %s\n' % x[999]
+    inputt += 'DEL %s\n' % x[99]
         
     return inputt
 
